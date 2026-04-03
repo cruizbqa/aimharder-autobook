@@ -33,32 +33,44 @@ class PlaywrightAuthenticator(Authenticator):
                 # Navigate to login
                 page.goto(self.base_url)
 
-                # Fill form and submit
+                # 1. Aceptar Cookies para evitar bloqueos y asegurar sesión válida
+                try:
+                    # Buscamos por el atributo onclick para que sea independiente del idioma
+                    page.click("a.removeCookie[onclick*='acceptAllBtn']", timeout=5000)
+                    logger.debug("Cookie banner accepted.")
+                except Exception:
+                    logger.debug("No cookie banner found or timeout.")
+
+                # 2. Rellenar credenciales con IDs específicos
                 page.fill("#mail", self.email)
                 page.fill("#pw", self.password)
+                
+                # 3. Click en Iniciar Sesión y esperar navegación
                 page.click("#loginSubmit")
 
-                # Wait for redirection (indicating login success)
+                # Esperar a que la URL cambie (exit de /login) o devuelva la cookie
                 try:
                     page.wait_for_function("window.location.href.indexOf('login') === -1", timeout=15000)
                 except Exception:
-                    # Some navigations may not happen as expected but we should check cookies
-                    pass
+                    # Si no redirige, comprobamos si hay mensaje de error en pantalla
+                    error_text = page.inner_text("body")
+                    if "incorrecto" in error_text.lower():
+                        raise AuthError("AimHarder: Correo electrónico y/o contraseña incorrecto.")
+                    pass 
 
-                # Get cookies
+                # Extraer cookies
                 cookies = context.cookies()
                 auth_cookie = next((c["value"] for c in cookies if c["name"] == "amhrdrauth"), None)
 
                 if not auth_cookie:
-                    raise AuthError("Auth cookie not found after login. Check credentials.")
+                    raise AuthError("Auth cookie 'amhrdrauth' not found after login. Possibly credentials error or captcha.")
 
                 # Populate session cookies
-                # Setting for both .aimharder.com and [box].aimharder.com to be sure
                 session.cookies.set("amhrdrauth", auth_cookie, domain=".aimharder.com")
                 session.cookies.set("amhrdrauth", auth_cookie, domain=f"{self.box_name}.aimharder.com")
 
                 browser.close()
-                logger.info("Playwright login successful.")
+                logger.info("Playwright login successful. Cookie acquired.")
                 return True
         except Exception as e:
             if isinstance(e, AuthError):
