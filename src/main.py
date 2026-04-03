@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 # Project structure imports
 from src.config.settings import AppConfig
-from src.core.exceptions import AuthError, AimHarderError
+from src.core.exceptions import AuthError, AimHarderError, BookingError
 from src.infrastructure.http.session import create_session
 from src.infrastructure.auth.playwright import PlaywrightAuthenticator
 from src.infrastructure.notifications.telegram import TelegramNotifier
@@ -47,7 +47,7 @@ def run(config: AppConfig) -> int:
         email=config.email,
         password=config.password,
         box_name=config.box_name,
-        base_url="https://aimharder.com"
+        base_url="https://login.aimharder.com"
     )
 
     try:
@@ -74,6 +74,12 @@ def run(config: AppConfig) -> int:
 
     except AuthError as exc:
         err_msg = f"❌ Error de autenticación: {exc}"
+        logger.error(err_msg)
+        if notifier:
+            notifier.send_message(err_msg)
+        return 1
+    except BookingError as exc:
+        err_msg = f"⚠️ Fallo en la reserva: {exc}"
         logger.error(err_msg)
         if notifier:
             notifier.send_message(err_msg)
