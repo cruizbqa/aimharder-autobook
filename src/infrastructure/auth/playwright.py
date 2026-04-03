@@ -31,12 +31,12 @@ class PlaywrightAuthenticator(Authenticator):
                 page = context.new_page()
 
                 # Navigate to login
-                page.goto(f"{self.base_url}/login")
+                page.goto(self.base_url)
 
                 # Fill form and submit
-                page.fill("input[name='login'], input[type='email']", self.email)
-                page.fill("input[name='psw'], input[type='password']", self.password)
-                page.keyboard.press("Enter")
+                page.fill("#mail", self.email)
+                page.fill("#pw", self.password)
+                page.click("#loginSubmit")
 
                 # Wait for redirection (indicating login success)
                 try:

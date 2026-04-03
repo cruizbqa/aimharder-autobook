@@ -47,7 +47,7 @@ def run(config: AppConfig) -> int:
         email=config.email,
         password=config.password,
         box_name=config.box_name,
-        base_url="https://aimharder.com"
+        base_url="https://login.aimharder.com"
     )
 
     try:
