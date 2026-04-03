@@ -52,12 +52,13 @@ class BookingManager:
 
         for attempt in range(1, attempts + 1):
             logger.info(f"━━━━━━━━ Intento {attempt}/{attempts} [{datetime.now().strftime('%H:%M:%S')}]")
-
+            last_exc = None
             try:
                 result = self.find_and_book(target_date)
                 logger.info(f"✅ Reserva completada! Respuesta: {result}")
                 return True
             except (BookingError, AimHarderError) as exc:
+                last_exc = exc
                 logger.warning(f"⚠️  Intento {attempt} fallido: {exc}")
 
             if attempt < attempts:
@@ -66,4 +67,4 @@ class BookingManager:
                 time.sleep(wait)
 
         logger.error(f"❌ Todos los intentos ({attempts}) agotados.")
-        return False
+        raise last_exc

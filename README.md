@@ -33,16 +33,10 @@ aimharder-autobook/
 
 Ve a **Settings → Secrets and variables → Actions → New repository secret** y añade:
 
-| Secret | Descripción |
-|---|---|
-| `AIMHARDER_EMAIL` | Email de tu cuenta AimHarder |
-| `AIMHARDER_PASSWORD` | Contraseña |
-| `BOX_NAME` | Subdominio de tu box (ej: `crossfit-test`) |
-| `BOX_ID` | ID numérico del box (ver abajo) |
-| `CLASS_TIME` | Hora de la clase en formato `HHMM` (ej: `0700`) |
-| `CLASS_NAME` | Fragmento del nombre de la clase (ej: `CrossFit`) |
 | `FAMILY_ID` | (Opcional) ID familiar |
 | `PROXY` | (Opcional) `socks5://[IP_ADDRESS]` |
+| `TELEGRAM_TOKEN` | (Opcional) Token de tu bot de @BotFather |
+| `TELEGRAM_CHAT_ID` | (Opcional) Tu ID numérico (de @userinfobot) |
 
 ### Cómo encontrar el BOX_ID
 
@@ -63,6 +57,9 @@ python -m playwright install chromium
 
 # 2. Ejecutar como módulo
 python -m src.main
+
+# 3. Probar Notificaciones de Telegram
+python tests/test_telegram.py
 ```
 
 ---
@@ -90,8 +87,9 @@ El script calcula automáticamente la fecha objetivo sumando las horas configura
 
 El inicio de sesión utiliza **Playwright (Headless Chrome)**. Esto emula un navegador real, lo que permite:
 1. Evitar bloqueos de "Contraseña incorrecta" producidos por detección de scripts.
-2. Capturar las cookies de sesión (`amhrdrauth`) de forma segura.
-3. Seguir operando a través de la API oficial con la sesión ya establecida.
+2. Gestionar automáticamente el **banner de cookies** y avisos legales.
+3. Capturar las cookies de sesión (`amhrdrauth`) de forma segura.
+4. Seguir operando a través de la API oficial con la sesión ya establecida.
 
 ---
 
