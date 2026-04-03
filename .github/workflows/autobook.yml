@@ -105,6 +105,9 @@ jobs:
 
           FAMILY_ID: ${{ secrets.FAMILY_ID }}
           PROXY:     ${{ secrets.PROXY }}
+          
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
         run: |
           python -m src.main

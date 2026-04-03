@@ -9,6 +9,7 @@ from src.config.settings import AppConfig
 from src.core.exceptions import AuthError, AimHarderError
 from src.infrastructure.http.session import create_session
 from src.infrastructure.auth.playwright import PlaywrightAuthenticator
+from src.infrastructure.notifications.telegram import TelegramNotifier
 from src.domain.api import AimHarderAPI
 from src.domain.booking import BookingManager
 
@@ -35,6 +36,11 @@ def run(config: AppConfig) -> int:
     logger.info(f"Reintentos   : {config.retry_attempts} (backoff x{config.retry_backoff:.0f}, espera inicial {config.retry_delay:.0f}s)")
     logger.info("═" * 55)
 
+    # Initialize Notification Service (Optional)
+    notifier = None
+    if config.telegram_token and config.telegram_chat_id:
+        notifier = TelegramNotifier(config.telegram_token, config.telegram_chat_id)
+
     # Dependency Injection
     session = create_session(proxy=config.proxy)
     auth = PlaywrightAuthenticator(
@@ -54,16 +60,35 @@ def run(config: AppConfig) -> int:
 
         # Execute booking
         success = manager.book_with_retry(target_date)
+        
+        if success and notifier:
+            msg = (
+                f"<b>✅ Reserva Confirmada</b>\n"
+                f"Gimnasio: {config.box_name}\n"
+                f"Clase: {config.class_name}\n"
+                f"Fecha: {target_date.strftime('%d/%m/%Y %H:%M')}"
+            )
+            notifier.send_message(msg)
+
         return 0 if success else 1
 
     except AuthError as exc:
-        logger.error(f"❌ Error de autenticación: {exc}")
+        err_msg = f"❌ Error de autenticación: {exc}"
+        logger.error(err_msg)
+        if notifier:
+            notifier.send_message(err_msg)
         return 1
     except AimHarderError as exc:
-        logger.error(f"❌ Error de API: {exc}")
+        err_msg = f"❌ Error de API: {exc}"
+        logger.error(err_msg)
+        if notifier:
+            notifier.send_message(err_msg)
         return 1
     except Exception as exc:
-        logger.exception(f"❌ Error inesperado: {exc}")
+        err_msg = f"❌ Error inesperado: {exc}"
+        logger.exception(err_msg)
+        if notifier:
+            notifier.send_message(err_msg)
         return 1
     finally:
         auth.logout(session)

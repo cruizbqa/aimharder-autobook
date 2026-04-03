@@ -24,6 +24,8 @@ class AppConfig:
     retry_attempts: int = 5
     retry_delay: float = 10.0
     retry_backoff: float = 2.0
+    telegram_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -40,4 +42,6 @@ class AppConfig:
             retry_attempts=int(os.environ.get("RETRY_ATTEMPTS", "5")),
             retry_delay=float(os.environ.get("RETRY_DELAY_SECONDS", "10.0")),
             retry_backoff=float(os.environ.get("RETRY_BACKOFF", "2.0")),
+            telegram_token=os.environ.get("TELEGRAM_TOKEN", "").strip() or None,
+            telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", "").strip() or None,
         )
