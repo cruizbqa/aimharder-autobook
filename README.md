@@ -1,25 +1,28 @@
 # aimharder-autobook 🏋️
 
-Automatización de reservas en [BOX_NAME.aimharder.com](https://BOX_NAME.aimharder.com)
-usando la API interna de AimHarder + GitHub Actions.
+Automatización de reservas en [BOX_NAME.aimharder.com](https://BOX_NAME.aimharder.com) usando la API interna de AimHarder + GitHub Actions.
 
-El sistema respeta la **ventana de reserva de 72 horas**: el workflow se ejecuta
-diariamente y reserva la clase que ocurrirá 3 días después (configurable).
+Este proyecto ha sido refactorizado siguiendo principios **SOLID** y una arquitectura limpia para ser robusto y fácil de mantener. Además, integra **Playwright** para superar bloqueos anti-bot en el inicio de sesión.
 
 ---
 
-## Estructura del proyecto
+## Estructura del Proyecto (SOLID)
+
+La lógica se divide en capas de responsabilidad clara:
 
 ```
 aimharder-autobook/
 ├── src/
-│   ├── aimharder_client.py   # Cliente API reutilizable
-│   └── main.py               # Script de entrada (lee env vars)
+│   ├── config/           # Gestión de settings y .env
+│   ├── core/             # Excepciones globales
+│   ├── domain/           # Lógica de negocio (API y Reservas)
+│   ├── infrastructure/   # Implementaciones técnicas (Auth Playwright, HTTP)
+│   └── main.py           # Orquestador (Entry Point)
 ├── tests/
-│   └── test_booking_logic.py # Pytest: ventana 72h, matching, auth
+│   └── unit/             # Tests unitarios organizados por dominio
 ├── .github/
 │   └── workflows/
-│       └── autobook.yml      # GitHub Actions workflow
+│       └── autobook.yml  # GitHub Actions (CD)
 ├── requirements.txt
 └── README.md
 ```
@@ -28,116 +31,67 @@ aimharder-autobook/
 
 ## Configuración en GitHub (Secrets)
 
-Ve a **Settings → Secrets and variables → Actions → New repository secret**
-y añade los siguientes secretos:
+Ve a **Settings → Secrets and variables → Actions → New repository secret** y añade:
 
-| Secret | Descripción | Ejemplo |
-|---|---|---|
-| `AIMHARDER_EMAIL` | Email de tu cuenta AimHarder | `[EMAIL_ADDRESS]` |
-| `AIMHARDER_PASSWORD` | Contraseña | `[PASSWORD]` |
-| `BOX_NAME` | Subdominio de tu box | `[BOX_NAME]` |
-| `BOX_ID` | ID numérico del box *(ver abajo)* | `[BOX_ID]` |
-| `BOOKING_GOALS` | JSON con objetivos de reserva | ver abajo |
-| `FAMILY_ID` | *(Opcional)* ID familiar | `[FAMILY_ID]` |
-| `PROXY` | *(Opcional)* `socks5://[IP_ADDRESS]` | — |
-
-> ⚠️ **NUNCA** pongas credenciales directamente en el código o en el YAML.
+| Secret | Descripción |
+|---|---|
+| `AIMHARDER_EMAIL` | Email de tu cuenta AimHarder |
+| `AIMHARDER_PASSWORD` | Contraseña |
+| `BOX_NAME` | Subdominio de tu box (ej: `crossfit-test`) |
+| `BOX_ID` | ID numérico del box (ver abajo) |
+| `CLASS_TIME` | Hora de la clase en formato `HHMM` (ej: `0700`) |
+| `CLASS_NAME` | Fragmento del nombre de la clase (ej: `CrossFit`) |
+| `FAMILY_ID` | (Opcional) ID familiar |
+| `PROXY` | (Opcional) `socks5://[IP_ADDRESS]` |
 
 ### Cómo encontrar el BOX_ID
 
 1. Abre Chrome DevTools (F12) → pestaña **Network**.
-2. Accede a `https://[BOX_NAME].aimharder.com/schedule` con tu cuenta.
-3. Filtra por `bookings` → inspecciona el payload de la request.
-4. El campo `box` es tu `BOX_ID`.
-
-### Formato de BOOKING_GOALS
-
-```json
-{
-  "0": {"time": "0700", "name": "WOD"},
-  "1": {"time": "1200", "name": "WOD"},
-  "3": {"time": "0700", "name": "WOD"},
-  "4": {"time": "0700", "name": "WOD"}
-}
-```
-
-- **Clave**: día de la semana como entero, `0` = Lunes … `6` = Domingo.
-- **`time`**: hora en formato `HHMM`.
-- **`name`**: fragmento del nombre de la clase (case-insensitive).
-
-Para **múltiples clases** el mismo día:
-
-```json
-{
-  "0": [
-    {"time": "0700", "name": "WOD"},
-    {"time": "1200", "name": "OPEN BOX"}
-  ]
-}
-```
+2. Accede a la agenda de tu box en AimHarder.
+3. Filtra por `bookings` → inspecciona el payload. El campo `box` es tu `BOX_ID`.
 
 ---
 
-## Ejecución local
+## Ejecución Local
+
+Para ejecutar el bot localmente, asegúrate de tener un archivo `.env` en la raíz con las variables mencionadas arriba.
 
 ```bash
-# Instalar dependencias
+# 1. Instalar dependencias y navegadores
 pip install -r requirements.txt
+python -m playwright install chromium
 
-# Ejecutar (con variables de entorno)
-export EMAIL="[EMAIL_ADDRESS]"
-export PASSWORD="[PASSWORD]"
-export BOX_NAME="[BOX_NAME]"
-export BOX_ID="[BOX_ID]"
-export BOOKING_GOALS='{"0":{"time":"0700","name":"WOD"}}'
-export DAYS_IN_ADVANCE="3"
-
-python src/main.py
+# 2. Ejecutar como módulo
+python -m src.main
 ```
 
 ---
 
-## Tests
+## Desarrollo y Tests
+
+El proyecto usa `pytest` para las pruebas unitarias.
 
 ```bash
-pip install pytest
-pytest tests/ -v
+# Ejecutar todos los tests
+python -m pytest tests/
 ```
 
 ---
 
-## GitHub Actions workflow
+## Lógica de la Ventana de 72 horas
 
-El workflow (`.github/workflows/autobook.yml`) se ejecuta:
+AimHarder abre reservas exactamente **72h antes** de la clase. El workflow de GitHub está configurado para dispararse en el momento exacto de apertura (ajustado por zona horaria de España) para asegurar el puesto en clases muy demandadas.
 
-- **Automáticamente** cada día a las 00:05 UTC (`cron: "5 0 * * *"`).
-- **Manualmente** desde *Actions → AimHarder Auto-Booking → Run workflow*,
-  con opción de ajustar `days_in_advance` y activar `dry_run`.
-
-### Lógica de la ventana de 72 horas
-
-```
-Hoy (script corre)      +72h                 Clase
-─────────────────────────┼────────────────────┼───▶
-     00:05 UTC           ventana se abre      clase
-```
-
-El script apunta 3 días hacia adelante. Cuando corre el lunes a las 00:05,
-reserva la clase del jueves. La ventana de AimHarder abre exactamente 72h
-antes, así que el intento de reserva coincide con la apertura.
-
-Si el box tiene un `hours_in_advance` diferente, ajusta la variable
-`DAYS_IN_ADVANCE` en el workflow (o pasa el parámetro al trigger manual).
+El script calcula automáticamente la fecha objetivo sumando las horas configuradas en `TARGET_HOURS` (por defecto 72) a la hora actual.
 
 ---
 
-## Notas sobre bloqueos de IP
+## Anti-Bot y Seguridad
 
-AimHarder puede bloquear IPs fuera de España con un error 403.
-Si ejecutas el workflow desde GitHub Actions (servidores en US/EU),
-configura el secret `PROXY` con un proxy español (socks5 o https).
-
-> 💡 Usa proxies de confianza: tus credenciales pasan a través de ellos.
+El inicio de sesión utiliza **Playwright (Headless Chrome)**. Esto emula un navegador real, lo que permite:
+1. Evitar bloqueos de "Contraseña incorrecta" producidos por detección de scripts.
+2. Capturar las cookies de sesión (`amhrdrauth`) de forma segura.
+3. Seguir operando a través de la API oficial con la sesión ya establecida.
 
 ---
 

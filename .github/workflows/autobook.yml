@@ -46,7 +46,7 @@ on:
       class_name:
         description: "Fragmento del nombre de la clase"
         required: false
-        default: "WOD"
+        default: "CrossFit"
       retry_attempts:
         description: "Número máximo de reintentos"
         required: false
@@ -77,6 +77,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
 
       - name: Execution context
         run: |
@@ -94,7 +95,7 @@ jobs:
 
           TARGET_HOURS: ${{ github.event.inputs.target_hours || '72' }}
           CLASS_TIME:   ${{ github.event.inputs.class_time   || '0700' }}
-          CLASS_NAME:   ${{ github.event.inputs.class_name   || 'WOD' }}
+          CLASS_NAME:   ${{ github.event.inputs.class_name   || 'CrossFit' }}
 
           # Reintentos con backoff exponencial
           # 5 intentos: esperas 10s → 20s → 40s → 80s ≈ 2.5 min total
@@ -106,8 +107,7 @@ jobs:
           PROXY:     ${{ secrets.PROXY }}
 
         run: |
-          cd src
-          python main.py
+          python -m src.main
 
       - name: Notify on failure
         if: failure()
