@@ -15,14 +15,24 @@ class BookingManager:
     def find_and_book(self, target_date: datetime) -> dict:
         """Helper to find and book a class based on name and time."""
         schedule = self.api.get_schedule(target_date)
+        
+        target_name_clean = self.config.class_name.strip().upper()
+        target_hour_clean = self.config.class_time.strip().replace(":", "").zfill(4)
 
-        matched_classes = [
-            c for c in schedule
-            if self.config.class_name.upper() in c.get("name", "").upper()
-            and c.get("hour", "").replace(":", "") == self.config.class_time
-        ]
+        logger.info(f"Busca: '{target_name_clean}' a las '{target_hour_clean}'")
+        
+        matched_classes = []
+        for c in schedule:
+            c_name = c.get("name", "").strip().upper()
+            c_hour = c.get("hour", "").strip().replace(":", "").zfill(4)
+            
+            if target_name_clean in c_name and c_hour == target_hour_clean:
+                matched_classes.append(c)
 
         if not matched_classes:
+            # Debug: show what we found instead
+            available = [f"{c.get('name')} ({c.get('hour')})" for c in schedule[:10]]
+            logger.error(f"No match. Muestra del horario: {available}")
             raise BookingError(
                 f"No class matching name='{self.config.class_name}' "
                 f"time='{self.config.class_time}' on {target_date.date()}."
