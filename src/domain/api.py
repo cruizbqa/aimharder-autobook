@@ -57,11 +57,20 @@ class AimHarderAPI:
             raise BookingError(f"Booking HTTP error {resp.status_code}: {resp.text[:200]}")
 
         data = resp.json()
+        logger.info(f"Respuesta API: {data}")
         code = data.get("code", -1)
+        # Algunos formatos de respuesta exitosa no traen 'code', sino 'id' y 'spot'
+        id_reserva = data.get("id")
+        spot = data.get("spot")
         msg = data.get("msg", "")
 
-        if code in (200, 201):
-            logger.info(f"Class {class_id} booked successfully.")
+        if (id_reserva and spot) or code in (200, 201):
+            logger.info(f"Class {class_id} booked successfully. Reserva ID: {id_reserva}, Spot: {spot}")
+            return data
+        
+        # Si el mensaje indica que ya tenemos reserva, lo tratamos como éxito "suave"
+        if msg and ("ya tiene" in msg.lower() or "existe" in msg.lower() or "ya reservado" in msg.lower()):
+            logger.info(f"Ya existía una reserva previa: {msg}")
             return data
 
         raise BookingError(f"Booking failed (code {code}): {msg}")
