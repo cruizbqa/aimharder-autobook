@@ -49,14 +49,18 @@ class BookingManager:
         class_id = str(target_class["id"])
 
         # Construct full class datetime
-        hour_str = target_class.get("hour", "00:00").replace(":", "")
+        # Unify field access same as matching logic
+        raw_time_str = target_class.get("time") or target_class.get("hour", "00:00")
+        hour_str = raw_time_str.split("-")[0].strip().replace(":", "").zfill(4)
+        
         hour = int(hour_str[:2])
         minute = int(hour_str[2:]) if len(hour_str) >= 4 else 0
         class_dt = target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
         # Basic 72h window check
         opens_at = class_dt - timedelta(hours=72)
-        if datetime.now() < opens_at:
+        # Fix: compare aware with aware
+        if datetime.now(target_date.tzinfo) < opens_at:
             raise BookingError(f"Booking window not open yet. It opens at {opens_at}.")
 
         return self.api.book_class(class_id, class_dt, family_id=self.config.family_id)
@@ -73,7 +77,7 @@ class BookingManager:
             try:
                 result = self.find_and_book(target_date)
                 logger.info(f"✅ Reserva completada! Respuesta: {result}")
-                return True
+                return result
             except (BookingError, AimHarderError) as exc:
                 last_exc = exc
                 logger.warning(f"⚠️  Intento {attempt} fallido: {exc}")

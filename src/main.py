@@ -80,20 +80,27 @@ def run(config: AppConfig) -> int:
         manager = BookingManager(api, config)
 
         # Execute booking
-        success = manager.book_with_retry(target_date)
+        result = manager.book_with_retry(target_date)
         
-        if success and notifier:
+        if result and notifier:
+            # Formatear la hora de la clase (ej: "0800" -> "08:00")
+            class_h = config.class_time[:2]
+            class_m = config.class_time[2:]
+            
+            spot = result.get("spot")
+            spot_msg = f"\n🔢 Plaza (Spot): {spot}" if spot else ""
+            
             msg = (
                 f"<b>✅ Reserva CONFIRMADA</b>\n"
                 f"🏋️ Clase: {config.class_name}\n"
-                f"📅 Fecha: {target_date.strftime('%d/%m/%Y %H:%M')}\n"
-                f"📍 Centro: {config.box_name}"
+                f"📅 Fecha: {target_date.strftime('%d/%m/%Y')} a las {class_h}:{class_m}\n"
+                f"📍 Centro: {config.box_name}{spot_msg}"
             )
             notifier.send_message(msg)
-        elif not success and notifier:
+        elif not result and notifier:
             notifier.send_message(f"⚠️ El proceso terminó sin confirmar la reserva para {config.class_name}.")
 
-        return 0 if success else 1
+        return 0 if result else 1
 
     except (AuthError, BookingError, AimHarderError) as exc:
         err_msg = f"❌ Error: {exc}"
