@@ -41,7 +41,7 @@ class TestBookingManager:
                 manager.find_and_book(datetime.now())
 
     def test_find_and_book_raises_when_window_closed(self, manager, api):
-        fake_class = {"id": "123", "name": "WOD CrossFit", "hour": "07:00"}
+        fake_class = {"id": "123", "className": "WOD CrossFit", "time": "07:00"}
         # Class is in 73 hours, window opens at class_dt - 72h
         target_dt = datetime.now() + timedelta(hours=73)
         
@@ -50,7 +50,7 @@ class TestBookingManager:
                 manager.find_and_book(target_dt)
 
     def test_find_and_book_success(self, manager, api):
-        fake_class = {"id": "42", "name": "WOD CrossFit", "hour": "07:00"}
+        fake_class = {"id": "42", "className": "WOD CrossFit", "time": "07:00 - 08:00"}
         target_dt = datetime.now() + timedelta(hours=24)
         
         with (
