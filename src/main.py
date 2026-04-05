@@ -32,10 +32,9 @@ def run(config: AppConfig) -> int:
     madrid_tz = ZoneInfo("Europe/Madrid")
     now = datetime.now(madrid_tz)
     
-    # ── Precisión horaria ────────────────────────────────────────────
-    # Si arrancamos un poco antes (06:45 - 07:00), esperamos hasta las 07:00:01.
-    # Si arrancamos en la ventana (07:00 - 07:15), procedemos.
-    # Si arrancamos después (07:15+), cancelamos por ser demasiado tarde.
+    # ── Lógica de Tiempo ─────────────────────────────────────────────
+    # Si arrancamos poco antes de las 07:00, esperamos para el segundo exacto.
+    # En cualquier otro horario, procedemos directamente (flexibilidad total).
     
     target_time = now.replace(hour=7, minute=0, second=1, microsecond=0)
     
@@ -43,12 +42,9 @@ def run(config: AppConfig) -> int:
         wait_seconds = (target_time - now).total_seconds()
         logger.info(f"Arrancado temprano! [{now.strftime('%H:%M:%S')}] Esperando {wait_seconds:.1f}s hasta las 07:00:01")
         time.sleep(wait_seconds)
-        now = datetime.now(madrid_tz)  # Actualizar 'now' para el log
-    elif now.hour == 7 and now.minute <= 15:
-        logger.info(f"Arrancado en ventana. [{now.strftime('%H:%M:%S')}] Procediendo...")
+        now = datetime.now(madrid_tz)
     else:
-        logger.info(f"Fuera de ventana. [{now.strftime('%H:%M:%S')}] Saltando por seguridad.")
-        return 0
+        logger.info(f"Iniciando ejecución fuera de ventana crítica (Hora actual: {now.strftime('%H:%M:%S')})")
 
     target_date = now + timedelta(hours=config.target_hours)
 
@@ -61,7 +57,7 @@ def run(config: AppConfig) -> int:
     logger.info(f"Reintentos   : {config.retry_attempts} (backoff x{config.retry_backoff:.0f}, espera inicial {config.retry_delay:.0f}s)")
     logger.info("═" * 55)
 
-    # Initialize Notification Service (Optional)
+    # Initialize Notification Service
     notifier = None
     if config.telegram_token and config.telegram_chat_id:
         notifier = TelegramNotifier(config.telegram_token, config.telegram_chat_id)
@@ -88,29 +84,19 @@ def run(config: AppConfig) -> int:
         
         if success and notifier:
             msg = (
-                f"<b>✅ Reserva Confirmada</b>\n"
-                f"Gimnasio: {config.box_name}\n"
-                f"Clase: {config.class_name}\n"
-                f"Fecha: {target_date.strftime('%d/%m/%Y %H:%M')}"
+                f"<b>✅ Reserva CONFIRMADA</b>\n"
+                f"🏋️ Clase: {config.class_name}\n"
+                f"📅 Fecha: {target_date.strftime('%d/%m/%Y %H:%M')}\n"
+                f"📍 Centro: {config.box_name}"
             )
             notifier.send_message(msg)
+        elif not success and notifier:
+            notifier.send_message(f"⚠️ El proceso terminó sin confirmar la reserva para {config.class_name}.")
 
         return 0 if success else 1
 
-    except AuthError as exc:
-        err_msg = f"❌ Error de autenticación: {exc}"
-        logger.error(err_msg)
-        if notifier:
-            notifier.send_message(err_msg)
-        return 1
-    except BookingError as exc:
-        err_msg = f"⚠️ Fallo en la reserva: {exc}"
-        logger.error(err_msg)
-        if notifier:
-            notifier.send_message(err_msg)
-        return 1
-    except AimHarderError as exc:
-        err_msg = f"❌ Error de API: {exc}"
+    except (AuthError, BookingError, AimHarderError) as exc:
+        err_msg = f"❌ Error: {exc}"
         logger.error(err_msg)
         if notifier:
             notifier.send_message(err_msg)
