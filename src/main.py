@@ -5,6 +5,11 @@ import sys
 from datetime import datetime, timedelta
 
 # Project structure imports
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+
 from src.config.settings import AppConfig
 from src.core.exceptions import AuthError, AimHarderError, BookingError
 from src.infrastructure.http.session import create_session
@@ -24,7 +29,27 @@ logger = logging.getLogger("autobook")
 
 
 def run(config: AppConfig) -> int:
-    now = datetime.now()
+    madrid_tz = ZoneInfo("Europe/Madrid")
+    now = datetime.now(madrid_tz)
+    
+    # ── Precisión horaria ────────────────────────────────────────────
+    # Si arrancamos un poco antes (06:45 - 07:00), esperamos hasta las 07:00:01.
+    # Si arrancamos en la ventana (07:00 - 07:15), procedemos.
+    # Si arrancamos después (07:15+), cancelamos por ser demasiado tarde.
+    
+    target_time = now.replace(hour=7, minute=0, second=1, microsecond=0)
+    
+    if now < target_time and now.hour == 6 and now.minute >= 40:
+        wait_seconds = (target_time - now).total_seconds()
+        logger.info(f"Arrancado temprano! [{now.strftime('%H:%M:%S')}] Esperando {wait_seconds:.1f}s hasta las 07:00:01")
+        time.sleep(wait_seconds)
+        now = datetime.now(madrid_tz)  # Actualizar 'now' para el log
+    elif now.hour == 7 and now.minute <= 15:
+        logger.info(f"Arrancado en ventana. [{now.strftime('%H:%M:%S')}] Procediendo...")
+    else:
+        logger.info(f"Fuera de ventana. [{now.strftime('%H:%M:%S')}] Saltando por seguridad.")
+        return 0
+
     target_date = now + timedelta(hours=config.target_hours)
 
     logger.info("═" * 55)

@@ -4,34 +4,32 @@ name: AimHarder Auto-Booking
 # LÓGICA DE VENTANA 72 h
 #
 # AimHarder abre reservas exactamente 72 h antes de la clase (07:00h España).
-# El cron dispara a las 07:00h hora española en punto:
-#   - Invierno CET  (UTC+1) → 06:00 UTC
-#   - Verano  CEST  (UTC+2) → 05:00 UTC
 #
-# Activamos los 8 crons (4 días × 2 zonas horarias). El script detecta
-# si "ahora en Madrid" son las 07:xx; si el runner arranca tarde por
-# carga de GH, el retry con backoff exponencial reintenta hasta 5 veces.
+# El script en src/main.py valida que sea exactamente las 07:xx en Madrid.
+# Por tanto, aunque programamos los crons para Invierno (06:00 UTC) y
+# Verano (05:00 UTC), el script descartará automáticamente la ejecución
+# que no corresponda con las 07:00 AM hora local.
 #
 # Clase objetivo    Cron dispara   CET (invierno)   CEST (verano)
 # ──────────────    ────────────   ──────────────   ─────────────
-# WOD Lunes 07:00   Viernes        0 6 * * 5        0 5 * * 5
-# WOD Martes 07:00  Sábado         0 6 * * 6        0 5 * * 6
-# WOD Jueves 07:00  Lunes          0 6 * * 1        0 5 * * 1
-# WOD Viernes 07:00 Martes         0 6 * * 2        0 5 * * 2
+# WOD Lunes 07:00   Viernes        45 5 * * 5       45 4 * * 5
+# WOD Martes 07:00  Sábado         45 5 * * 6       45 4 * * 6
+# WOD Jueves 07:00  Lunes          45 5 * * 1       45 4 * * 1
+# WOD Viernes 07:00 Martes         45 5 * * 2       45 4 * * 2
 # ──────────────────────────────────────────────────────────────────────
 
 on:
   schedule:
-    # Invierno CET (UTC+1) — hora UTC 06:00
-    - cron: "0 6 * * 5"   # WOD Lunes   → corre Viernes  06:00 UTC
-    - cron: "0 6 * * 6"   # WOD Martes  → corre Sábado   06:00 UTC
-    - cron: "0 6 * * 1"   # WOD Jueves  → corre Lunes    06:00 UTC
-    - cron: "0 6 * * 2"   # WOD Viernes → corre Martes   06:00 UTC
-    # Verano CEST (UTC+2) — hora UTC 05:00
-    - cron: "0 5 * * 5"   # WOD Lunes   → corre Viernes  05:00 UTC
-    - cron: "0 5 * * 6"   # WOD Martes  → corre Sábado   05:00 UTC
-    - cron: "0 5 * * 1"   # WOD Jueves  → corre Lunes    05:00 UTC
-    - cron: "0 5 * * 2"   # WOD Viernes → corre Martes   05:00 UTC
+    # Invierno CET (UTC+1) — arranca 06:45 local (05:45 UTC)
+    - cron: "45 5 * * 5"   # WOD Lunes   → corre Viernes
+    - cron: "45 5 * * 6"   # WOD Martes  → corre Sábado
+    - cron: "45 5 * * 1"   # WOD Jueves  → corre Lunes
+    - cron: "45 5 * * 2"   # WOD Viernes → corre Martes
+    # Verano CEST (UTC+2) — arranca 06:45 local (04:45 UTC)
+    - cron: "45 4 * * 5"   # WOD Lunes   → corre Viernes
+    - cron: "45 4 * * 6"   # WOD Martes  → corre Sábado
+    - cron: "45 4 * * 1"   # WOD Jueves  → corre Lunes
+    - cron: "45 4 * * 2"   # WOD Viernes → corre Martes
 
   workflow_dispatch:
     inputs:
