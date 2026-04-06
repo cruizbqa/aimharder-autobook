@@ -1,43 +1,16 @@
 name: AimHarder Auto-Booking
 
 # ──────────────────────────────────────────────────────────────────────
-# EJECUCIÓN DIARIA + CONTROL HORARIO EN PYTHON
+# DISPARO EXTERNO (CRON-JOB.ORG)
 #
-# Este workflow se dispara TODOS los días dos veces:
-#   - 05:45 UTC  -> cubre CEST / verano (06:45 local no, 07:45? no usar)
-#   - 04:45 UTC  -> cubre? NO
+# Este workflow se dispara mediante la API de GitHub (workflow_dispatch).
+# Se recomienda usar cron-job.org para una precisión de segundos y
+# evitar los retrasos del scheduler nativo de GitHub.
 #
-# OJO:
-# GitHub Actions usa UTC en schedule. Como el script Python trabaja con
-# Europe/Madrid y ya decide cómo comportarse según la hora local, aquí
-# programamos una ejecución diaria para cada horario estacional:
-#
-#   - Invierno (CET, UTC+1): 05:45 UTC = 06:45 Madrid
-#   - Verano   (CEST, UTC+2): 04:45 UTC = 06:45 Madrid
-#
-# El script en src/main.py:
-#   - si arranca entre 06:40 y 06:59 en Madrid, espera hasta las 07:00:01
-#   - fuera de esa ventana, continúa igualmente
-#
-# Así:
-#   - no tocamos lógica de negocio
-#   - mantenemos flexibilidad vía workflow_dispatch inputs
-#   - evitamos depender de días concretos en el cron
-#
-# IMPORTANTE:
-# Al ejecutarse todos los días, habrá días en los que el proceso corra aunque
-# luego no haya una reserva útil para realizar. Esa decisión queda delegada a
-# la lógica actual de Python y a las variables del workflow.
+# Horario recomendado en cron-job.org: 07:00:05 (Europe/Madrid)
 # ──────────────────────────────────────────────────────────────────────
 
 on:
-  schedule:
-    # Invierno CET (UTC+1) -> 06:45 hora Madrid
-    - cron: "45 5 * * *"
-
-    # Verano CEST (UTC+2) -> 06:45 hora Madrid
-    - cron: "45 4 * * *"
-
   workflow_dispatch:
     inputs:
       target_hours:

@@ -12,7 +12,7 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo
 
 from src.config.settings import AppConfig
-from src.core.exceptions import AuthError, AimHarderError, BookingError
+from src.core.exceptions import AuthError, AimHarderError, BookingError, AlreadyBookedError
 from src.infrastructure.http.session import create_session
 from src.infrastructure.auth.playwright import PlaywrightAuthenticator
 from src.infrastructure.notifications.telegram import TelegramNotifier
@@ -62,6 +62,13 @@ def run(config: AppConfig) -> int:
     notifier = None
     if config.telegram_token and config.telegram_chat_id:
         notifier = TelegramNotifier(config.telegram_token, config.telegram_chat_id)
+        # Notificar inicio de proceso
+        notifier.send_message(
+            f"🚀 <b>Iniciando proceso de reserva</b>\n"
+            f"🏋️ Clase: {config.class_name} ({config.class_time})\n"
+            f"📅 Fecha: {target_date.strftime('%d/%m/%Y')}\n"
+            f"⏳ Ventana: {config.target_hours}h"
+        )
 
     # Dependency Injection
     session = create_session(proxy=config.proxy)
@@ -103,6 +110,12 @@ def run(config: AppConfig) -> int:
 
         return 0 if result else 1
 
+    except AlreadyBookedError as exc:
+        err_msg = f"ℹ️ <b>Aviso: Reserva ya existente</b>\n{exc}"
+        logger.info(err_msg)
+        if notifier:
+            notifier.send_message(err_msg)
+        return 0  # No es un error crítico "fallido", simplemente ya estaba hecho
     except (AuthError, BookingError, AimHarderError) as exc:
         err_msg = f"❌ Error: {exc}"
         logger.error(err_msg)
