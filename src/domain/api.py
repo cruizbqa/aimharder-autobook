@@ -2,7 +2,7 @@ import logging
 import requests
 from datetime import datetime
 from typing import Optional
-from src.core.exceptions import AimHarderError, BookingError
+from src.core.exceptions import AimHarderError, BookingError, AlreadyBookedError
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +68,16 @@ class AimHarderAPI:
             logger.info(f"Class {class_id} booked successfully. Reserva ID: {id_reserva}, Spot: {spot}")
             return data
         
-        # Si el mensaje indica que ya tenemos reserva, lo tratamos como éxito "suave"
-        if msg and ("ya tiene" in msg.lower() or "existe" in msg.lower() or "ya reservado" in msg.lower()):
-            logger.info(f"Ya existía una reserva previa: {msg}")
-            return data
+        # Si el mensaje indica que ya tenemos reserva a esa misma hora, abortamos con error específico
+        error_lang = data.get("errorMssgLang")
+        book_state = data.get("bookState")
+        error_msg = data.get("errorMssg") or msg
+        
+        if error_lang == "NOPUEDESRESERVAMISMAHORA" or book_state == -12 or (error_msg and ("ya tiene" in error_msg.lower() or "existe" in error_msg.lower() or "ya reservado" in error_msg.lower())):
+            logger.info(f"Ya existía una reserva previa: {error_msg or error_lang}")
+            raise AlreadyBookedError(error_msg or error_lang or "Reserva duplicada detectada")
 
-        raise BookingError(f"Booking failed (code {code}): {msg}")
+        raise BookingError(f"Booking failed (code {code}): {error_msg or data.get('errorMssg', '')}")
 
     def cancel_booking(self, class_id: str, class_datetime: datetime, family_id: Optional[str] = None) -> dict:
         """Cancel an existing booking."""

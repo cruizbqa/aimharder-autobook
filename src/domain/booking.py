@@ -2,7 +2,7 @@ import time
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from src.core.exceptions import BookingError, AimHarderError
+from src.core.exceptions import BookingError, AimHarderError, AlreadyBookedError
 from src.domain.api import AimHarderAPI
 
 logger = logging.getLogger(__name__)
@@ -78,6 +78,10 @@ class BookingManager:
                 result = self.find_and_book(target_date)
                 logger.info(f"✅ Reserva completada! Respuesta: {result}")
                 return result
+            except AlreadyBookedError as exc:
+                # Abortamos reintentos inmediatamente si ya hay algo reservado
+                logger.error(f"⚠️  Abortando reintentos: {exc}")
+                raise exc
             except (BookingError, AimHarderError) as exc:
                 last_exc = exc
                 logger.warning(f"⚠️  Intento {attempt} fallido: {exc}")
