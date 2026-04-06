@@ -22,7 +22,7 @@ aimharder-autobook/
 │   └── unit/             # Tests unitarios organizados por dominio
 ├── .github/
 │   └── workflows/
-│       └── autobook.yml  # GitHub Actions (CD)
+│       └── autobook.yml  # GitHub Actions (CD - Workflow Dispatch)
 ├── requirements.txt
 └── README.md
 ```
@@ -75,11 +75,20 @@ python -m pytest tests/
 
 ---
 
-## Lógica de la Ventana de 72 horas
+## Lógica de la Ventana de 72 horas y Scheduling
 
-AimHarder abre reservas exactamente **72h antes** de la clase. El workflow de GitHub está configurado para dispararse en el momento exacto de apertura (ajustado por zona horaria de España) para asegurar el puesto en clases muy demandadas.
+AimHarder abre reservas exactamente **72h antes** de la clase (normalmente a las 07:00:00). 
 
-El script calcula automáticamente la fecha objetivo sumando las horas configuradas en `TARGET_HOURS` (por defecto 72) a la hora actual.
+Para garantizar la máxima precisión y evitar los retrasos aleatorios del `schedule` nativo de GitHub, este proyecto utiliza un disparador externo:
+
+1. **Scheduler**: Se recomienda usar [cron-job.org](https://cron-job.org) configurado para las **07:00:05 (Europe/Madrid)**.
+2. **Trigger**: El scheduler llama a la API de GitHub (`workflow_dispatch`) para arrancar el bot al segundo exacto.
+3. **Control en Python**: El script `src/main.py` calcula la fecha objetivo sumando `TARGET_HOURS` (default 72) y, si arranca unos segundos antes, espera al momento preciso para disparar la reserva.
+
+### Manejo de Reservas Duplicadas
+El bot detecta si ya tienes una clase reservada en el mismo horario (`NOPUEDESRESERVAMISMAHORA`). En ese caso:
+- **Aborta inmediatamente** los reintentos para no bloquear la cuenta.
+- Envía una **notificación informativa** por Telegram en lugar de un error de fallo.
 
 ---
 

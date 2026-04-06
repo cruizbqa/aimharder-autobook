@@ -11,6 +11,7 @@ To provide a robust, SOLID-compliant automation that bypasses bot detection, ens
 3. **No Placeholders**: Never commit credentials. Always use `src/config/settings.py` to read from environment variables.
 4. **Proactive Feedback**: Always ensure the `Notifier` is used so that the user doesn't need to check GitHub logs for success/failure info.
 5. **Tested Changes**: Every modification to the booking or API logic must include its respective unit test in `tests/unit/`.
+6. **Precision First**: Prioritize `workflow_dispatch` via external schedulers over native GitHub crons to ensure sub-minute accuracy.
 
 ## Workflow
 1. Use `src/config/settings.py` for variables.
