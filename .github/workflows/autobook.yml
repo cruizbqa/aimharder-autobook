@@ -1,35 +1,42 @@
 name: AimHarder Auto-Booking
 
 # ──────────────────────────────────────────────────────────────────────
-# LÓGICA DE VENTANA 72 h
+# EJECUCIÓN DIARIA + CONTROL HORARIO EN PYTHON
 #
-# AimHarder abre reservas exactamente 72 h antes de la clase (07:00h España).
+# Este workflow se dispara TODOS los días dos veces:
+#   - 05:45 UTC  -> cubre CEST / verano (06:45 local no, 07:45? no usar)
+#   - 04:45 UTC  -> cubre? NO
 #
-# El script en src/main.py valida que sea exactamente las 07:xx en Madrid.
-# Por tanto, aunque programamos los crons para Invierno (06:00 UTC) y
-# Verano (05:00 UTC), el script descartará automáticamente la ejecución
-# que no corresponda con las 07:00 AM hora local.
+# OJO:
+# GitHub Actions usa UTC en schedule. Como el script Python trabaja con
+# Europe/Madrid y ya decide cómo comportarse según la hora local, aquí
+# programamos una ejecución diaria para cada horario estacional:
 #
-# Clase objetivo    Cron dispara   CET (invierno)   CEST (verano)
-# ──────────────    ────────────   ──────────────   ─────────────
-# WOD Lunes 07:00   Viernes        45 5 * * 5       45 4 * * 5
-# WOD Martes 07:00  Sábado         45 5 * * 6       45 4 * * 6
-# WOD Jueves 07:00  Lunes          45 5 * * 1       45 4 * * 1
-# WOD Viernes 07:00 Martes         45 5 * * 2       45 4 * * 2
+#   - Invierno (CET, UTC+1): 05:45 UTC = 06:45 Madrid
+#   - Verano   (CEST, UTC+2): 04:45 UTC = 06:45 Madrid
+#
+# El script en src/main.py:
+#   - si arranca entre 06:40 y 06:59 en Madrid, espera hasta las 07:00:01
+#   - fuera de esa ventana, continúa igualmente
+#
+# Así:
+#   - no tocamos lógica de negocio
+#   - mantenemos flexibilidad vía workflow_dispatch inputs
+#   - evitamos depender de días concretos en el cron
+#
+# IMPORTANTE:
+# Al ejecutarse todos los días, habrá días en los que el proceso corra aunque
+# luego no haya una reserva útil para realizar. Esa decisión queda delegada a
+# la lógica actual de Python y a las variables del workflow.
 # ──────────────────────────────────────────────────────────────────────
 
 on:
   schedule:
-    # Invierno CET (UTC+1) — arranca 06:45 local (05:45 UTC)
-    - cron: "45 5 * * 5"   # WOD Lunes   → corre Viernes
-    - cron: "45 5 * * 6"   # WOD Martes  → corre Sábado
-    - cron: "45 5 * * 1"   # WOD Jueves  → corre Lunes
-    - cron: "45 5 * * 2"   # WOD Viernes → corre Martes
-    # Verano CEST (UTC+2) — arranca 06:45 local (04:45 UTC)
-    - cron: "45 4 * * 5"   # WOD Lunes   → corre Viernes
-    - cron: "45 4 * * 6"   # WOD Martes  → corre Sábado
-    - cron: "45 4 * * 1"   # WOD Jueves  → corre Lunes
-    - cron: "45 4 * * 2"   # WOD Viernes → corre Martes
+    # Invierno CET (UTC+1) -> 06:45 hora Madrid
+    - cron: "45 5 * * *"
+
+    # Verano CEST (UTC+2) -> 06:45 hora Madrid
+    - cron: "45 4 * * *"
 
   workflow_dispatch:
     inputs:
@@ -50,16 +57,16 @@ on:
         required: false
         default: "5"
 
-# Sin solapamientos entre runs
+# Evita solapamientos entre ejecuciones
 concurrency:
   group: aimharder-booking
   cancel-in-progress: false
 
 jobs:
   book:
-    name: "Reservar WOD CrossFit — ventana 72 h"
+    name: "Reservar clase AimHarder"
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # margen para reintentos con backoff
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -92,25 +99,25 @@ jobs:
 
       - name: Run auto-booking
         env:
-          EMAIL:    ${{ secrets.AIMHARDER_EMAIL }}
+          EMAIL: ${{ secrets.AIMHARDER_EMAIL }}
           PASSWORD: ${{ secrets.AIMHARDER_PASSWORD }}
           BOX_NAME: ${{ secrets.BOX_NAME }}
-          BOX_ID:   ${{ secrets.BOX_ID }}
+          BOX_ID: ${{ secrets.BOX_ID }}
 
           TARGET_HOURS: ${{ github.event.inputs.target_hours || '72' }}
-          CLASS_TIME:   ${{ github.event.inputs.class_time   || '0700' }}
-          CLASS_NAME:   ${{ github.event.inputs.class_name   || 'CrossFit' }}
+          CLASS_TIME: ${{ github.event.inputs.class_time || '0700' }}
+          CLASS_NAME: ${{ github.event.inputs.class_name || 'CrossFit' }}
 
           # Reintentos con backoff exponencial
-          # 5 intentos: esperas 10s → 20s → 40s → 80s ≈ 2.5 min total
-          RETRY_ATTEMPTS:      ${{ github.event.inputs.retry_attempts || '5' }}
+          # 5 intentos: 10s -> 20s -> 40s -> 80s
+          RETRY_ATTEMPTS: ${{ github.event.inputs.retry_attempts || '5' }}
           RETRY_DELAY_SECONDS: "10"
-          RETRY_BACKOFF:       "2"
+          RETRY_BACKOFF: "2"
 
           FAMILY_ID: ${{ secrets.FAMILY_ID }}
-          PROXY:     ${{ secrets.PROXY }}
-          
-          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          PROXY: ${{ secrets.PROXY }}
+
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
         run: |
