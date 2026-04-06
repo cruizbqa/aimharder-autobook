@@ -10,12 +10,12 @@ This skill provides functionality to synchronize with the AimHarder platform, fe
 ## Core Capabilities
 - **Automated Login**: Uses Playwright (Headless Chrome) with cookie-banner handling to bypass anti-bot mechanisms.
 - **Schedule Management**: Fetches class agendas for specific boxes and dates via internal APIs.
-- **Booking Orchestration**: Handles exponential backoff retries to hit narrow booking windows (e.g., 72h precisely).
-- **Proactive Notifications**: Integrated Telegram notification system for success and fail states.
+- **Booking Orchestration**: Optimized for precision via external schedulers (cron-job.org) and immediate abort on duplicate reservations (`AlreadyBookedError`).
+- **Proactive Notifications**: Telegram system for Start, Success, and Informative/Warning states.
 
 ## Repository Structure
 - **config**: Settings and env validation.
-- **core**: Custom exceptions (`AimHarderError`, `AuthError`, `BookingError`).
+- **core**: Custom exceptions (`AimHarderError`, `AuthError`, `BookingError`, `AlreadyBookedError`).
 - **domain**: Business logic (`AimHarderAPI` and `BookingManager`).
 - **infrastructure**: External integrations (`PlaywrightAuthenticator`, `session`, `TelegramNotifier`).
 
