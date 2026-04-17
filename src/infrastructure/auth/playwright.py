@@ -42,11 +42,11 @@ class PlaywrightAuthenticator(Authenticator):
                     logger.debug("No cookie banner found or timeout.")
 
                 # 2. Rellenar credenciales con IDs específicos
-                page.fill("#mail", self.email)
-                page.fill("#pw", self.password)
+                page.fill("[name='username']", self.email)
+                page.fill("[name='password']", self.password)
                 
                 # 3. Click en Iniciar Sesión y esperar navegación
-                page.click("#loginSubmit")
+                page.click("[type='submit']")
 
                 # Esperar a que la URL cambie (exit de /login) o devuelva la cookie
                 try:
